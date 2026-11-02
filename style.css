@@ -8,9 +8,9 @@ body{
     justify-content: center;
     position: fixed;
     background-size: cover;
-    background-image: url("mythical-dragon-beast-anime-style.jpg") ;
-  
-
+    background-position: center;
+    background-repeat: no-repeat;
+    background-image: url("mythical-dragon-beast-anime-style.jpg");
 
 }
 .login-page{
