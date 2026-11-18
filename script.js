@@ -9,8 +9,45 @@ const formSubtitle = document.querySelector("#form-subtitle");
 const submitButton = document.querySelector("#submit-button");
 const toggleCopy = document.querySelector("#toggle-copy");
 const formStatus = document.querySelector("#form-status");
+const sessionPanel = document.querySelector("#session-panel");
+const sessionCopy = document.querySelector("#session-copy");
+const signoutButton = document.querySelector("#signout-button");
 
 let isSignUp = true;
+
+const googleMessages = {
+    signed_in: "Signed in with Google.",
+    not_configured: "Google sign-in is not configured. Add your Google OAuth credentials to .env.",
+    invalid_state: "Google sign-in expired or could not be verified. Please try again.",
+    cancelled: "Google sign-in was cancelled.",
+    account_exists: "An account with this email already exists. Sign in with it first, then choose Continue with Google to link it.",
+    provider_error: "Google sign-in could not be completed. Please try again."
+};
+
+const pageUrl = new URL(window.location.href);
+const googleResult = pageUrl.searchParams.get("google");
+if (googleResult) {
+    formStatus.textContent = googleMessages[googleResult] || googleMessages.provider_error;
+    pageUrl.searchParams.delete("google");
+    history.replaceState(null, "", `${pageUrl.pathname}${pageUrl.search}${pageUrl.hash}`);
+}
+
+async function refreshSession() {
+    try {
+        const response = await fetch("/api/auth/session");
+        if (!response.ok) {
+            throw new Error("Session check failed.");
+        }
+        const result = await response.json();
+        sessionPanel.hidden = !result.authenticated;
+        if (result.authenticated) {
+            sessionCopy.textContent = `Signed in as ${result.username}.`;
+        }
+    } catch (error) {
+        console.error("Could not check sign-in session:", error);
+        formStatus.textContent = "Could not check your sign-in session. Please refresh the page.";
+    }
+}
 
 function validatePasswordMatch() {
     const passwordsMatch = passwordInput.value === confirmPasswordInput.value;
@@ -45,6 +82,23 @@ modeToggle.addEventListener("click", () => {
     formStatus.textContent = "";
 });
 
+signoutButton.addEventListener("click", async () => {
+    signoutButton.disabled = true;
+    try {
+        const response = await fetch("/api/auth/signout", { method: "POST" });
+        if (!response.ok) {
+            throw new Error("Sign-out request failed.");
+        }
+        sessionPanel.hidden = true;
+        formStatus.textContent = "Signed out.";
+    } catch (error) {
+        console.error("Sign-out request failed:", error);
+        formStatus.textContent = "Could not sign out. Please try again.";
+    } finally {
+        signoutButton.disabled = false;
+    }
+});
+
 authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     submitButton.disabled = true;
@@ -69,6 +123,9 @@ authForm.addEventListener("submit", async (event) => {
         formStatus.textContent = response.ok
             ? result.message
             : result.error || "The request could not be completed.";
+        if (response.ok && !isSignUp) {
+            await refreshSession();
+        }
     } catch (error) {
         console.error("Authentication request failed:", error);
         formStatus.textContent = "Could not reach the server. Start the app with npm start and open http://127.0.0.1:3000.";
@@ -76,3 +133,5 @@ authForm.addEventListener("submit", async (event) => {
         submitButton.disabled = false;
     }
 });
+
+refreshSession();

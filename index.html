@@ -35,10 +35,18 @@
             <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
         </form>
 
+        <p class="form-divider">or</p>
+        <a class="google-button" href="/auth/google">Continue with Google</a>
+
         <p class="toggle-prompt">
             <span id="toggle-copy">Already have an account?</span>
             <button class="toggle-button" id="mode-toggle" type="button" aria-controls="auth-form">Sign in</button>
         </p>
+
+        <section class="session-panel" id="session-panel" aria-live="polite" hidden>
+            <p id="session-copy"></p>
+            <button class="signout-button" id="signout-button" type="button">Sign out</button>
+        </section>
     </main>
 </body>
 </html>
