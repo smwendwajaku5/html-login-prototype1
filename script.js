@@ -12,6 +12,7 @@ const formStatus = document.querySelector("#form-status");
 const sessionPanel = document.querySelector("#session-panel");
 const sessionCopy = document.querySelector("#session-copy");
 const signoutButton = document.querySelector("#signout-button");
+const mainWebsiteUrl = "https://smwendwajaku5.github.io/anime_website/";
 
 let isSignUp = true;
 
@@ -124,7 +125,7 @@ authForm.addEventListener("submit", async (event) => {
             ? result.message
             : result.error || "The request could not be completed.";
         if (response.ok && !isSignUp) {
-            await refreshSession();
+            window.location.assign(mainWebsiteUrl);
         }
     } catch (error) {
         console.error("Authentication request failed:", error);

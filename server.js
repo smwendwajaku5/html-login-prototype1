@@ -31,6 +31,9 @@ const database = new DatabaseSync(DATABASE_PATH);
 database.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
+`);
+
+const schemaSql = `
     CREATE TABLE IF NOT EXISTS accounts (
         id INTEGER PRIMARY KEY,
         username TEXT NOT NULL COLLATE NOCASE UNIQUE,
@@ -40,42 +43,44 @@ database.exec(`
         google_subject TEXT UNIQUE,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
-`);
 
-const accountColumns = database.prepare('PRAGMA table_info(accounts)').all();
-if (!accountColumns.some((column) => column.name === 'google_subject')) {
-    database.exec('BEGIN IMMEDIATE');
-    try {
-        database.exec(`
-            ALTER TABLE accounts RENAME TO accounts_before_google_sign_in;
-            CREATE TABLE accounts (
-                id INTEGER PRIMARY KEY,
-                username TEXT NOT NULL COLLATE NOCASE UNIQUE,
-                email TEXT NOT NULL COLLATE NOCASE UNIQUE,
-                password_salt TEXT,
-                password_hash TEXT,
-                google_subject TEXT UNIQUE,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-            INSERT INTO accounts (id, username, email, password_salt, password_hash, created_at)
-            SELECT id, username, email, password_salt, password_hash, created_at
-            FROM accounts_before_google_sign_in;
-            DROP TABLE accounts_before_google_sign_in;
-        `);
-        database.exec('COMMIT');
-    } catch (error) {
-        database.exec('ROLLBACK');
-        throw error;
-    }
-}
-
-database.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
         token_hash TEXT PRIMARY KEY,
         account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
         expires_at INTEGER NOT NULL
     );
-`);
+`;
+const accountsTable = database.prepare(`
+    SELECT name
+    FROM sqlite_master
+    WHERE type = 'table' AND name = 'accounts'
+`).get();
+
+if (accountsTable) {
+    const accountColumns = database.prepare('PRAGMA table_info(accounts)').all();
+    if (!accountColumns.some((column) => column.name === 'google_subject')) {
+        database.exec('BEGIN IMMEDIATE');
+        try {
+            database.exec(`
+                DROP TABLE IF EXISTS sessions;
+                ALTER TABLE accounts RENAME TO accounts_before_google_sign_in;
+            `);
+            database.exec(schemaSql);
+            database.exec(`
+                INSERT INTO accounts (id, username, email, password_salt, password_hash, created_at)
+                SELECT id, username, email, password_salt, password_hash, created_at
+                FROM accounts_before_google_sign_in;
+                DROP TABLE accounts_before_google_sign_in;
+            `);
+            database.exec('COMMIT');
+        } catch (error) {
+            database.exec('ROLLBACK');
+            throw error;
+        }
+    }
+}
+
+database.exec(schemaSql);
 
 const findAccountByEmail = database.prepare(`
     SELECT id, username, email, password_salt, password_hash, google_subject
